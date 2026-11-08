@@ -1,0 +1,6 @@
+{
+  "name": "CrediGestión - Sistema de Préstamos Personales",
+  "description": "Sistema integral de gestión de préstamos personales, cobranzas, pasarelas de pago, facturación electrónica, portal móvil y reportes financieros.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
