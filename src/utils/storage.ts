@@ -10,6 +10,7 @@ import {
   SystemUser
 } from '../types';
 import { calculateAmortizationSchedule, updateInstallmentsLateFees } from './finance';
+import { syncManager } from './syncManager';
 
 export const SEED_USERS: SystemUser[] = [
   {
@@ -432,6 +433,7 @@ export const Storage = {
   },
   saveClients: (clients: Client[]) => {
     localStorage.setItem('credigestion_clients', JSON.stringify(clients));
+    syncManager.broadcastChange('clients', clients);
   },
 
   getLoans: (): Loan[] => {
@@ -452,18 +454,23 @@ export const Storage = {
   },
   saveLoans: (loans: Loan[]) => {
     localStorage.setItem('credigestion_loans', JSON.stringify(loans));
+    syncManager.broadcastChange('loans', loans);
   },
 
   getPayments: (): Payment[] => {
     try {
       const data = localStorage.getItem('credigestion_payments');
-      return data ? JSON.parse(data) : SEED_PAYMENTS;
+      if (data) {
+        return data ? JSON.parse(data) : SEED_PAYMENTS;
+      }
+      return SEED_PAYMENTS;
     } catch {
       return SEED_PAYMENTS;
     }
   },
   savePayments: (payments: Payment[]) => {
     localStorage.setItem('credigestion_payments', JSON.stringify(payments));
+    syncManager.broadcastChange('payments', payments);
   },
 
   getInvoices: (): ElectronicInvoice[] => {
@@ -476,6 +483,7 @@ export const Storage = {
   },
   saveInvoices: (invoices: ElectronicInvoice[]) => {
     localStorage.setItem('credigestion_invoices', JSON.stringify(invoices));
+    syncManager.broadcastChange('invoices', invoices);
   },
 
   getNotifications: (): NotificationLog[] => {
@@ -488,6 +496,7 @@ export const Storage = {
   },
   saveNotifications: (notifs: NotificationLog[]) => {
     localStorage.setItem('credigestion_notifications', JSON.stringify(notifs));
+    syncManager.broadcastChange('notifications', notifs);
   },
 
   getSettings: (): CompanySettings => {
@@ -500,6 +509,7 @@ export const Storage = {
   },
   saveSettings: (settings: CompanySettings) => {
     localStorage.setItem('credigestion_settings', JSON.stringify(settings));
+    syncManager.broadcastChange('settings', settings);
   },
 
   getUsers: (): SystemUser[] => {
@@ -512,6 +522,7 @@ export const Storage = {
   },
   saveUsers: (users: SystemUser[]) => {
     localStorage.setItem('credigestion_users', JSON.stringify(users));
+    syncManager.broadcastChange('users', users);
   },
 
   getCurrentUser: (): SystemUser | null => {
@@ -547,6 +558,12 @@ export const Storage = {
     localStorage.removeItem('credigestion_settings');
     localStorage.removeItem('credigestion_users');
     localStorage.removeItem('credigestion_current_user');
+    syncManager.broadcastChange('all');
+    fetch('/api/database/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).catch(() => {});
   },
 
   exportAllData: (overrideData?: Partial<AppBackupData['data']>): AppBackupData => {
@@ -651,6 +668,41 @@ export const Storage = {
     Storage.saveSettings(backup.data.settings);
     if (backup.data.users && Array.isArray(backup.data.users)) {
       Storage.saveUsers(backup.data.users);
+    }
+    syncManager.broadcastChange('all', backup.data);
+    fetch('/api/database/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ backup }),
+    }).catch(() => {});
+  },
+
+  syncWithServerData: (serverDb: any) => {
+    if (!serverDb) return;
+    try {
+      if (Array.isArray(serverDb.clients)) {
+        localStorage.setItem('credigestion_clients', JSON.stringify(serverDb.clients));
+      }
+      if (Array.isArray(serverDb.loans)) {
+        localStorage.setItem('credigestion_loans', JSON.stringify(serverDb.loans));
+      }
+      if (Array.isArray(serverDb.payments)) {
+        localStorage.setItem('credigestion_payments', JSON.stringify(serverDb.payments));
+      }
+      if (Array.isArray(serverDb.invoices)) {
+        localStorage.setItem('credigestion_invoices', JSON.stringify(serverDb.invoices));
+      }
+      if (Array.isArray(serverDb.notifications)) {
+        localStorage.setItem('credigestion_notifications', JSON.stringify(serverDb.notifications));
+      }
+      if (serverDb.settings) {
+        localStorage.setItem('credigestion_settings', JSON.stringify(serverDb.settings));
+      }
+      if (Array.isArray(serverDb.users)) {
+        localStorage.setItem('credigestion_users', JSON.stringify(serverDb.users));
+      }
+    } catch (e) {
+      console.warn('Error saving server sync to localStorage:', e);
     }
   },
 };

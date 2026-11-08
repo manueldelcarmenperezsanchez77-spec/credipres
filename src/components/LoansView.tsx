@@ -15,11 +15,14 @@ import {
   FileText,
   FileDown,
   Download,
-  Printer
+  Printer,
+  Smartphone,
+  Share2
 } from 'lucide-react';
 import { Client, CompanySettings, Loan, Payment } from '../types';
 import { formatCurrency, formatDate } from '../utils/finance';
 import { LoanStatementModal } from './modals/LoanStatementModal';
+import { ShareClientAppModal } from './modals/ShareClientAppModal';
 import { downloadLoanStatementPDF } from '../utils/loanStatementPdf';
 
 interface LoansViewProps {
@@ -44,6 +47,7 @@ export const LoansView: React.FC<LoansViewProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'overdue' | 'paid'>('all');
   const [expandedLoanId, setExpandedLoanId] = useState<string | null>(loans[0]?.id || null);
   const [selectedLoanForStatement, setSelectedLoanForStatement] = useState<Loan | null>(null);
+  const [sharingLoan, setSharingLoan] = useState<Loan | null>(null);
 
   const handleOpenStatementModal = (loan: Loan) => {
     setSelectedLoanForStatement(loan);
@@ -273,6 +277,17 @@ export const LoansView: React.FC<LoansViewProps> = ({
                       <span className="hidden sm:inline">Estado de Cuenta</span>
                     </button>
 
+                    <button
+                      id={`btn-card-share-app-${loan.id}`}
+                      type="button"
+                      onClick={() => setSharingLoan(loan)}
+                      className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 border border-slate-200 transition"
+                      title="Enviar link de acceso o descarga de la app móvil al cliente"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="hidden sm:inline">Enviar App</span>
+                    </button>
+
                     {loan.status !== 'paid' && (
                       <button
                         onClick={() => onOpenPaymentModal(loan)}
@@ -500,6 +515,18 @@ export const LoansView: React.FC<LoansViewProps> = ({
           payments={payments}
           settings={settings}
           client={clients.find((c) => c.id === selectedLoanForStatement.clientId) || null}
+        />
+      )}
+
+      {/* Share Client App Modal */}
+      {sharingLoan && (
+        <ShareClientAppModal
+          isOpen={Boolean(sharingLoan)}
+          onClose={() => setSharingLoan(null)}
+          clients={clients}
+          initialClientId={sharingLoan.clientId}
+          settings={settings}
+          loans={loans}
         />
       )}
     </div>

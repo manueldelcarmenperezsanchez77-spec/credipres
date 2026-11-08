@@ -17,6 +17,7 @@ import {
   Lock
 } from 'lucide-react';
 import { CompanySettings, SystemUser } from '../types';
+import { SyncStatusBadge } from './common/SyncStatusBadge';
 
 interface NavbarProps {
   currentView: 'admin' | 'mobile_app' | 'calculator';
@@ -98,6 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hidden sm:inline-block">
                   En Producción
                 </span>
+                <SyncStatusBadge compact={true} />
               </div>
               <p className="text-xs text-slate-500 font-medium truncate max-w-xs sm:max-w-md">
                 {companySettings.companyName}

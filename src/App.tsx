@@ -38,6 +38,7 @@ import {
 } from './types';
 import { Storage } from './utils/storage';
 import { createElectronicInvoice } from './utils/invoicing';
+import { syncManager } from './utils/syncManager';
 import { 
   PendingAlert, 
   buildNotificationMessage, 
@@ -79,6 +80,19 @@ export default function App() {
     onTimeout: () => {
       setIsScreenLocked(true);
     },
+  });
+
+  // Check if opened directly with client portal query param: ?portal=cliente or ?app=cliente
+  const [isClientPortalRoute, setIsClientPortalRoute] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('portal') === 'cliente' || params.get('app') === 'cliente';
+  });
+
+  const [directClientId, setDirectClientId] = useState<string | undefined>(() => {
+    if (typeof window === 'undefined') return undefined;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('clientId') || params.get('client') || undefined;
   });
 
   // Navigation state
@@ -140,6 +154,79 @@ export default function App() {
   useEffect(() => {
     Storage.saveUsers(users);
   }, [users]);
+
+  // Real-time automatic synchronization across all tabs and mobile users with Central Database
+  useEffect(() => {
+    // 1. Initial fetch from Central Database Server
+    syncManager.fetchServerDatabase().then((serverData) => {
+      if (serverData) {
+        Storage.syncWithServerData(serverData);
+        if (Array.isArray(serverData.clients)) setClients(serverData.clients);
+        if (Array.isArray(serverData.loans)) setLoans(serverData.loans);
+        if (Array.isArray(serverData.payments)) setPayments(serverData.payments);
+        if (Array.isArray(serverData.invoices)) setInvoices(serverData.invoices);
+        if (Array.isArray(serverData.notifications)) setNotifications(serverData.notifications);
+        if (serverData.settings) setSettings(serverData.settings);
+        if (Array.isArray(serverData.users)) setUsers(serverData.users);
+        console.log('[Central DB] Successfully synchronized application state from central server.');
+      }
+    });
+
+    const handleReload = (entityType?: string) => {
+      if (!entityType || entityType === 'all' || entityType === 'clients') {
+        setClients(Storage.getClients());
+      }
+      if (!entityType || entityType === 'all' || entityType === 'loans') {
+        setLoans(Storage.getLoans());
+      }
+      if (!entityType || entityType === 'all' || entityType === 'payments') {
+        setPayments(Storage.getPayments());
+      }
+      if (!entityType || entityType === 'all' || entityType === 'invoices') {
+        setInvoices(Storage.getInvoices());
+      }
+      if (!entityType || entityType === 'all' || entityType === 'notifications') {
+        setNotifications(Storage.getNotifications());
+      }
+      if (!entityType || entityType === 'all' || entityType === 'settings') {
+        setSettings(Storage.getSettings());
+      }
+      if (!entityType || entityType === 'all' || entityType === 'users') {
+        setUsers(Storage.getUsers());
+      }
+    };
+
+    // 2. Listen to real-time events from server & cross-tab bus
+    const unsubSync = syncManager.onSync(async (payload) => {
+      const serverData = await syncManager.fetchServerDatabase();
+      if (serverData) {
+        Storage.syncWithServerData(serverData);
+      }
+      handleReload(payload.entityType);
+    });
+
+    const handleWindowFocus = () => {
+      syncManager.fetchServerDatabase().then((serverData) => {
+        if (serverData) {
+          Storage.syncWithServerData(serverData);
+        }
+        handleReload('all');
+      });
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+
+    // Heartbeat check every 4 seconds to guarantee state is strictly in sync online
+    const heartbeatTimer = setInterval(() => {
+      handleReload('all');
+    }, 4000);
+
+    return () => {
+      unsubSync();
+      window.removeEventListener('focus', handleWindowFocus);
+      clearInterval(heartbeatTimer);
+    };
+  }, []);
 
   // Enforce role-based access to tabs
   useEffect(() => {
@@ -401,12 +488,16 @@ export default function App() {
     const newLogs: NotificationLog[] = [];
 
     pendingAlerts.forEach((alert) => {
+      const clientPortalUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}${window.location.pathname}?portal=cliente&clientId=${alert.loan.clientId}`
+        : `https://credigestion.app/?portal=cliente&clientId=${alert.loan.clientId}`;
+
       const msg = buildNotificationMessage(
         alert,
         settings.companyName,
         settings.currency,
         settings.currencyCode,
-        `https://credigestion.app/pay/${alert.loan.id}`
+        clientPortalUrl
       );
       const entry = createNotificationEntry(
         alert.loan,
@@ -414,7 +505,7 @@ export default function App() {
         alert.type === 'overdue' ? 'overdue_notice' : alert.type === 'due_today' ? 'reminder_due_today' : 'reminder_due_3days',
         'whatsapp',
         msg,
-        `https://credigestion.app/pay/${alert.loan.id}`
+        clientPortalUrl
       );
       newLogs.push(entry);
     });
@@ -424,12 +515,16 @@ export default function App() {
 
   // Single notification
   const handleSendSingleNotification = (alert: PendingAlert) => {
+    const clientPortalUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}?portal=cliente&clientId=${alert.loan.clientId}`
+      : `https://credigestion.app/?portal=cliente&clientId=${alert.loan.clientId}`;
+
     const msg = buildNotificationMessage(
       alert,
       settings.companyName,
       settings.currency,
       settings.currencyCode,
-      `https://credigestion.app/pay/${alert.loan.id}`
+      clientPortalUrl
     );
     const entry = createNotificationEntry(
       alert.loan,
@@ -437,7 +532,7 @@ export default function App() {
       alert.type === 'overdue' ? 'overdue_notice' : alert.type === 'due_today' ? 'reminder_due_today' : 'reminder_due_3days',
       'whatsapp',
       msg,
-      `https://credigestion.app/pay/${alert.loan.id}`
+      clientPortalUrl
     );
     setNotifications((prev) => [entry, ...prev]);
   };
@@ -495,6 +590,48 @@ export default function App() {
       setUsers(backup.data.users);
     }
   };
+
+  // Standalone Client Mobile Portal Gate: Direct access for borrowers via link
+  if (isClientPortalRoute) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-800 p-2 sm:p-6 flex flex-col justify-center items-center">
+        <div className="w-full max-w-2xl">
+          <MobileAppView
+            clients={clients}
+            loans={loans}
+            payments={payments}
+            invoices={invoices}
+            settings={settings}
+            onPayInstallment={handlePayFromMobileApp}
+            onViewInvoice={handleViewInvoiceById}
+            initialClientId={directClientId}
+            isStandaloneMode={true}
+            onExitStandalone={() => {
+              if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('portal');
+                url.searchParams.delete('app');
+                url.searchParams.delete('clientId');
+                url.searchParams.delete('client');
+                window.history.replaceState({}, document.title, url.toString());
+              }
+              setIsClientPortalRoute(false);
+            }}
+          />
+        </div>
+
+        {/* Invoice Modal if triggered in client portal */}
+        {activeViewingInvoice && (
+          <InvoiceModal
+            isOpen={isInvoiceModalOpen}
+            onClose={() => setIsInvoiceModalOpen(false)}
+            invoice={activeViewingInvoice}
+            settings={settings}
+          />
+        )}
+      </div>
+    );
+  }
 
   // Authentication Gate: Require user login before opening the application
   if (!currentUser) {

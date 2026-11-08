@@ -14,10 +14,13 @@ import {
   UserCheck,
   Hash,
   AlertCircle,
-  Filter
+  Filter,
+  Smartphone,
+  Share2
 } from 'lucide-react';
 import { Client, CompanySettings, Loan } from '../types';
 import { formatCurrency, formatDate } from '../utils/finance';
+import { ShareClientAppModal } from './modals/ShareClientAppModal';
 
 interface ClientsViewProps {
   clients: Client[];
@@ -49,6 +52,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [fieldFilter, setFieldFilter] = useState<SearchFieldFilter>('all');
   const [selectedClient, setSelectedClient] = useState<Client | null>(clients[0] || null);
+  const [sharingClient, setSharingClient] = useState<Client | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Global search filtering with multi-attribute real-time matching
@@ -447,14 +451,27 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   </div>
                 </div>
 
-                <button
-                  id="btn-client-new-loan"
-                  onClick={() => onSelectClientForLoan(selectedClient)}
-                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-bold shadow-xs transition"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  <span>Nuevo Préstamo a este Cliente</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    id="btn-client-share-app"
+                    type="button"
+                    onClick={() => setSharingClient(selectedClient)}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold shadow-xs transition"
+                    title="Enviar enlace para acceder y descargar la app del cliente por WhatsApp, SMS o QR"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Enviar App Móvil</span>
+                  </button>
+
+                  <button
+                    id="btn-client-new-loan"
+                    onClick={() => onSelectClientForLoan(selectedClient)}
+                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-bold shadow-xs transition"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Nuevo Préstamo</span>
+                  </button>
+                </div>
               </div>
 
               {/* Personal and Financial Data */}
@@ -575,6 +592,18 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Share Client App Modal */}
+      {sharingClient && (
+        <ShareClientAppModal
+          isOpen={Boolean(sharingClient)}
+          onClose={() => setSharingClient(null)}
+          clients={clients}
+          initialClientId={sharingClient.id}
+          settings={settings}
+          loans={loans}
+        />
+      )}
     </div>
   );
 };

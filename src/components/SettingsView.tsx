@@ -33,6 +33,8 @@ import {
   Payment 
 } from '../types';
 import { Storage } from '../utils/storage';
+import { syncManager } from '../utils/syncManager';
+import { SyncStatusBadge } from './common/SyncStatusBadge';
 
 interface SettingsViewProps {
   settings: CompanySettings;
@@ -218,6 +220,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             ¡Cambios guardados con éxito!
           </span>
         )}
+      </div>
+
+      {/* CENTRAL ONLINE DATABASE & REAL-TIME STATUS CARD */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-extrabold text-slate-900">
+                  Base de Datos Central en Línea (Conexión Multidispositivo)
+                </h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
+                  Activa en Tiempo Real
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Toda la información financiera, créditos, abonos de clientes y cobradores se sincroniza centralmente en la nube.
+              </p>
+            </div>
+          </div>
+
+          <SyncStatusBadge />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Motor de Datos</span>
+            <span className="font-extrabold text-slate-900 mt-0.5 block">Servidor Central Express</span>
+            <span className="text-[10px] text-slate-500">Persistencia segura en disco JSON</span>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Transmisión en Vivo</span>
+            <span className="font-extrabold text-emerald-600 mt-0.5 block">Server-Sent Events (SSE)</span>
+            <span className="text-[10px] text-slate-500">Actualizaciones instantáneas a móviles</span>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Endpoints de Red</span>
+            <span className="font-mono text-indigo-600 font-bold mt-0.5 block truncate">/api/database & /api/events</span>
+            <span className="text-[10px] text-slate-500">Acceso REST + Event Streaming</span>
+          </div>
+        </div>
       </div>
 
       {/* BACKUP & DATA SECURITY SECTION (PROMINENT CARDS) */}
